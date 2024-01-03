@@ -14,6 +14,7 @@ COPY . /app
 ENV PORT 5000
 ENV PLEX_URL=""
 ENV PLEX_TOKEN=""
+ENV LIBRARY_NAME=""
 
 # Make port available to the world outside this container
 EXPOSE $PORT
