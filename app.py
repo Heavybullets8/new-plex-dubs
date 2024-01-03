@@ -111,7 +111,7 @@ def webhook():
     log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed)
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
-        handle_deletion_event(data, episode_id, is_dubbed)
+        handle_deletion_event(episode_id)
     elif event_type == 'Download':
         handle_download_event(show_name, episode_name, episode_id, is_dubbed)
 
