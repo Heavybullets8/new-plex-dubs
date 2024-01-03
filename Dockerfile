@@ -10,11 +10,18 @@ RUN pip install Flask PlexAPI requests
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Make port 5000 available to the world outside this container
-EXPOSE 5000
+# Define environment variable for the port and Plex credentials
+ENV PORT 5000
+ENV PLEX_URL YourPlexURL
+ENV PLEX_TOKEN YourPlexToken
 
-# Define environment variable
+# Make port available to the world outside this container
+EXPOSE $PORT
+
+# Define environment variables
 ENV NAME World
+ENV PLEX_URL=""
+ENV PLEX_TOKEN=""
 
 # Run app.py when the container launches
 CMD ["python", "app.py"]
