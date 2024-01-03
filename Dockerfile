@@ -18,10 +18,5 @@ ENV PLEX_TOKEN=""
 # Make port available to the world outside this container
 EXPOSE $PORT
 
-# Define environment variables
-ENV NAME World
-ENV PLEX_URL=""
-ENV PLEX_TOKEN=""
-
 # Run app.py when the container launches
 CMD ["python", "app.py"]

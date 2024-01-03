@@ -1,9 +1,29 @@
 from flask import Flask, request
 from plexapi.server import PlexServer
-import os
+from urllib.parse import urlparse
+import os, sys
 
-PLEX_URL = os.getenv('PLEX_URL')  
-PLEX_TOKEN = os.getenv('PLEX_TOKEN')  
+def get_env_variable(var_name, required=True):
+    value = os.getenv(var_name)
+    if required and not value:
+        print(f"Error: The {var_name} environment variable is required.")
+        sys.exit(1)
+    return value
+
+def is_valid_url(url):
+    parsed = urlparse(url)
+    return all([parsed.scheme, parsed.netloc])
+
+# Get environment variables
+LIBRARY_NAME = get_env_variable('LIBRARY_NAME')
+PLEX_URL = get_env_variable('PLEX_URL')
+PLEX_TOKEN = get_env_variable('PLEX_TOKEN')
+
+# Validate PLEX_URL
+if not is_valid_url(PLEX_URL):
+    print("Error: PLEX_URL is not a valid URL.")
+    sys.exit(1)
+
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 
 app = Flask(__name__)
