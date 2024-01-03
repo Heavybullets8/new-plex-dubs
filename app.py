@@ -38,12 +38,10 @@ def is_english_dubbed(data):
     app.logger.info(f"English dubbed: {is_dubbed}")
     return is_dubbed
 
-def get_episode_from_data(data):
-    show_title = data.get('series', {}).get('title')
-    episode_title = data.get('episodes', [{}])[0].get('title')
-    app.logger.info(f"Fetching episode: {episode_title} from show: {show_title}")
-    show = plex.library.section(LIBRARY_NAME).get(show_title)
-    episode = show.episode(episode_title)
+def get_episode_from_data(show_name, episode_name):
+    app.logger.info(f"Ensuring show '{show_name}' exists in library.")
+    show = plex.library.section(LIBRARY_NAME).get(show_name)
+    episode = show.episode(episode_name)
     app.logger.info(f"Found episode: {episode.title}")
     return episode
 
@@ -78,33 +76,44 @@ def manage_collection(episode, collection_name='Latest Dubs'):
         # Remove the episodes in bulk after logging
         collection.removeItems(episodes_to_remove)
 
+def handle_download_event(show_name, episode_name, episode_id, is_dubbed):
+    if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
+        app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
+    elif is_dubbed:
+        try:
+            episode = get_episode_from_data(show_name, episode_name)
+            manage_collection(episode)
+        except Exception as e:
+            app.logger.info(f"Error processing request: {e}")
+
+def handle_deletion_event(episode_id):
+    if episode_id:
+        deleted_episodes[:] = [(ep_id, timestamp) for ep_id, timestamp in deleted_episodes if ep_id != episode_id]
+        deleted_episodes.append((episode_id, time.time()))
+        app.logger.info("Updated deletion record due to upgrade.")
+
+def log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed):
+    app.logger.info("\nWebhook Received")
+    app.logger.info(f"Show Title: {show_name}")
+    app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
+    app.logger.info(f"Event Type: {event_type}")
+    app.logger.info(f"Is English Dubbed: {is_dubbed}")
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    app.logger.info("Received webhook")
     data = request.get_json()
-    
-    if data:
-        event_type = data.get('eventType')
-        # Handle deletion events
-        if event_type == 'EpisodeFileDelete' and is_english_dubbed(data) and data.get('deleteReason') == 'upgrade':
-            episode_id = data.get('episodes', [{}])[0].get('id')
-            if episode_id:
-                deleted_episodes.append((episode_id, time.time()))
-                app.logger.info(f"Marked English dubbed episode {episode_id} as deleted due to upgrade.")
+    event_type = data.get('eventType')
+    show_name = data.get('series', {}).get('title')
+    episode_name = data.get('episodes', [{}])[0].get('title')
+    episode_id = data.get('episodes', [{}])[0].get('id')
+    is_dubbed = is_english_dubbed(data)
 
-        # Handle download events
-        elif event_type == 'Download':
-            episode_id = data.get('episodes', [{}])[0].get('id')
-            # Skip processing if recently deleted due to upgrade
-            if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
-                app.logger.info(f"Skipping download of episode {episode_id} as it was a previous upgrade of an English dubbed episode.")
-            elif is_english_dubbed(data):
-                try:
-                    episode = get_episode_from_data(data)
-                    manage_collection(episode)
-                except Exception as e:
-                    app.logger.info(f"Error processing request: {e}")
+    log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed)
+
+    if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
+        handle_deletion_event(data, episode_id, is_dubbed)
+    elif event_type == 'Download':
+        handle_download_event(show_name, episode_name, episode_id, is_dubbed)
 
     return "Webhook received", 200
 
