@@ -1,7 +1,11 @@
 from flask import Flask, request
 from plexapi.server import PlexServer
 from urllib.parse import urlparse
-import os, sys
+from collections import deque
+import os, sys, time
+
+# Cache for deleted episodes (episode identifier, timestamp)
+deleted_episodes = deque(maxlen=100)
 
 app = Flask(__name__)
 
@@ -79,12 +83,29 @@ def manage_collection(episode, collection_name='Latest Dubs'):
 def webhook():
     app.logger.info("Received webhook")
     data = request.get_json()
-    if data and is_english_dubbed(data):
-        try:
-            episode = get_episode_from_data(data)
-            manage_collection(episode)
-        except Exception as e:
-            app.logger.info(f"Error processing request: {e}")
+    
+    if data:
+        event_type = data.get('eventType')
+        # Handle deletion events
+        if event_type == 'EpisodeFileDelete' and is_english_dubbed(data) and data.get('deleteReason') == 'upgrade':
+            episode_id = data.get('episodes', [{}])[0].get('id')
+            if episode_id:
+                deleted_episodes.append((episode_id, time.time()))
+                app.logger.info(f"Marked English dubbed episode {episode_id} as deleted due to upgrade.")
+
+        # Handle download events
+        elif event_type == 'Download':
+            episode_id = data.get('episodes', [{}])[0].get('id')
+            # Skip processing if recently deleted due to upgrade
+            if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
+                app.logger.info(f"Skipping download of episode {episode_id} as it was a previous upgrade of an English dubbed episode.")
+            elif is_english_dubbed(data):
+                try:
+                    episode = get_episode_from_data(data)
+                    manage_collection(episode)
+                except Exception as e:
+                    app.logger.info(f"Error processing request: {e}")
+
     return "Webhook received", 200
 
 if __name__ == '__main__':
