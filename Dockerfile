@@ -12,8 +12,8 @@ COPY . /app
 
 # Define environment variable for the port and Plex credentials
 ENV PORT 5000
-ENV PLEX_URL YourPlexURL
-ENV PLEX_TOKEN YourPlexToken
+ENV PLEX_URL=""
+ENV PLEX_TOKEN=""
 
 # Make port available to the world outside this container
 EXPOSE $PORT
