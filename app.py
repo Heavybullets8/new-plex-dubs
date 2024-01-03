@@ -88,12 +88,16 @@ def handle_download_event(show_name, episode_name, episode_id, is_dubbed):
 
 def handle_deletion_event(episode_id):
     if episode_id:
-        deleted_episodes[:] = [(ep_id, timestamp) for ep_id, timestamp in deleted_episodes if ep_id != episode_id]
+        # Filter out the old entry of the episode if it exists
+        temp = [(ep_id, timestamp) for ep_id, timestamp in deleted_episodes if ep_id != episode_id]
+        deleted_episodes.clear()
+        deleted_episodes.extend(temp)
         deleted_episodes.append((episode_id, time.time()))
         app.logger.info("Updated deletion record due to upgrade.")
 
 def log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed):
-    app.logger.info("\nWebhook Received")
+    app.logger.info(" ")
+    app.logger.info("Webhook Received")
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
     app.logger.info(f"Event Type: {event_type}")
