@@ -35,21 +35,21 @@ def is_english_dubbed(data):
 def get_episode_from_data(data):
     show_title = data.get('series', {}).get('title')
     episode_title = data.get('episodes', [{}])[0].get('title')
-    show = plex.library.section('Anime Series').get(show_title)
+    show = plex.library.section(LIBRARY_NAME).get(show_title)
     return show.episode(episode_title)
 
 def manage_collection(episode, collection_name='Latest Dubs'):
     collection = None
 
     # Check if collection exists
-    for col in plex.library.section("Anime Series").collections():
+    for col in plex.library.section(LIBRARY_NAME).collections():
         if col.title == collection_name:
             collection = col
             break
 
     # If collection does not exist, create it and add the episode
     if collection is None:
-        collection = plex.library.section("Anime Series").createCollection(title=collection_name, items=[episode])
+        collection = plex.library.section(LIBRARY_NAME).createCollection(title=collection_name, items=[episode])
     else:
         # Check if the episode is already in the collection
         if episode not in collection.items():
