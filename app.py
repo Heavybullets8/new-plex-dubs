@@ -48,20 +48,17 @@ def manage_collection(episode, collection_name='Latest Dubs'):
     collection = None
 
     # Check if collection exists
-    found = False
     for col in plex.library.section(LIBRARY_NAME).collections():
         if col.title == collection_name:
             collection = col
-            found = True
             app.logger.info(f"Collection '{collection_name}' already exists.")
             break
 
-    if not found:
+    # Create collection and add episode if not found, else add episode if not present
+    if collection is None:
         app.logger.info(f"Creating new collection '{collection_name}'.")
         collection = plex.library.section(LIBRARY_NAME).createCollection(title=collection_name, items=[episode])
-
-    # Check if the episode is already in the collection
-    if episode not in collection.items():
+    elif episode not in collection.items():
         app.logger.info(f"Adding episode '{episode.title}' to collection '{collection_name}'.")
         collection.addItems([episode])
     else:
@@ -74,7 +71,8 @@ def manage_collection(episode, collection_name='Latest Dubs'):
         episodes_to_remove = sorted_episodes[:-100]
         for ep in episodes_to_remove:
             app.logger.info(f"Removing episode '{ep.title}' from collection.")
-            ep.removeCollection(collection_name)
+        # Remove the episodes in bulk after logging
+        collection.removeItems(episodes_to_remove)
 
 
 @app.route('/webhook', methods=['POST'])
