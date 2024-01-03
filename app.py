@@ -35,7 +35,6 @@ plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 def is_english_dubbed(data):
     audio_languages = data.get('episodeFile', {}).get('mediaInfo', {}).get('audioLanguages', [])
     is_dubbed = 'eng' in audio_languages
-    app.logger.info(f"English dubbed: {is_dubbed}")
     return is_dubbed
 
 def get_episode_from_data(show_name, episode_name):
@@ -101,7 +100,7 @@ def log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
     app.logger.info(f"Event Type: {event_type}")
-    app.logger.info(f"Is English Dubbed: {is_dubbed}")
+    app.logger.info(f"English Dubbed: {is_dubbed}")
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
