@@ -3,6 +3,8 @@ from plexapi.server import PlexServer
 from urllib.parse import urlparse
 import os, sys
 
+app = Flask(__name__)
+
 def get_env_variable(var_name, required=True):
     value = os.getenv(var_name)
     if required and not value:
@@ -25,8 +27,6 @@ if not is_valid_url(PLEX_URL):
     sys.exit(1)
 
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-
-app = Flask(__name__)
 
 def is_english_dubbed(data):
     audio_languages = data.get('episodeFile', {}).get('mediaInfo', {}).get('audioLanguages', [])
