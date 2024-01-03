@@ -34,8 +34,13 @@ plex = PlexServer(PLEX_URL, PLEX_TOKEN)
 
 def is_english_dubbed(data):
     audio_languages = data.get('episodeFile', {}).get('mediaInfo', {}).get('audioLanguages', [])
-    is_dubbed = 'eng' in audio_languages
-    return is_dubbed
+    is_dubbed_audio = 'eng' in audio_languages
+
+    custom_formats = data.get('customFormatInfo', {}).get('customFormats', [])
+    is_custom_format = any(cf.get('name') in ['Anime Dual Audio', 'Dubs Only'] for cf in custom_formats)
+
+    return is_dubbed_audio or is_custom_format
+
 
 def get_episode_from_data(show_name, episode_name):
     app.logger.info(f"Ensuring show '{show_name}' exists in library.")
