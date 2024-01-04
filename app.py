@@ -1,6 +1,7 @@
 from flask import Flask, request
-from plexapi.server import PlexServer
+from plexapi.server import PlexServer, NotFound
 from urllib.parse import urlparse
+from fuzzywuzzy import process
 from collections import deque
 import os, sys, time
 
@@ -44,49 +45,87 @@ def is_english_dubbed(data):
 
     return is_dubbed_audio or is_custom_format
 
+def get_closest_episode(show, query_title, score_cutoff=75):
+    episodes = [ep.title for ep in show.episodes()]
+    closest_match = process.extractOne(query_title, episodes, score_cutoff=score_cutoff)
+    
+    if closest_match and closest_match[1] >= score_cutoff:
+        return show.episode(closest_match[0])
+    else:
+        app.logger.info(f"No close match found for episode '{query_title}' in show '{show.title}' with cutoff score of {score_cutoff}.")
+        return None
+
+def get_closest_show(library_section, query_title, score_cutoff=90):
+    shows = [show.title for show in library_section.all()]
+    closest_match, score = process.extractOne(query_title, shows, score_cutoff=score_cutoff)
+    
+    if score >= score_cutoff:
+        return library_section.get(closest_match)
+    else:
+        app.logger.info(f"No close match found for '{query_title}' with cutoff score of {score_cutoff}.")
+        return None
+
 def get_episode_from_data(LIBRARY_NAME, show_name, episode_name):
-    app.logger.info(f"Ensuring show '{show_name}' exists in library.")
+    app.logger.info(f"Attempting to locate show '{show_name}' in library.")
+    library_section = plex.library.section(LIBRARY_NAME)
     try:
-        show = plex.library.section(LIBRARY_NAME).get(show_name)
-        episode = show.episode(episode_name)
-        app.logger.info(f"Found episode: {episode.title}")
-    except:
-        app.logger.error(f"Episode '{episode_name}' in show '{show_name}' not found in library.")
+        show = library_section.get(show_name)
+    except NotFound:
+        app.logger.info("Exact match not found, attempting fuzzy match for show.")
+        show = get_closest_show(library_section, show_name)
+
+    if show:
+        try:
+            episode = show.episode(episode_name)
+        except NotFound:
+            app.logger.info("Exact match not found, attempting fuzzy match for episode.")
+            episode = get_closest_episode(show, episode_name)
+        except Exception as e:
+            app.logger.error(f"Error fetching episode: {e}")
+            episode = None
+    else:
+        app.logger.error(f"Show '{show_name}' not found in library.")
         episode = None
+
+    if episode:
+        app.logger.info(f"Found episode: {episode.title}")
     return episode
 
 def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_movie=False):
     media_type = 'movie' if is_movie else 'episode'
-    app.logger.info(f"Managing collection for {media_type}: {media.title}")
+    app.logger.info(f"Managing and sorting collection for {media_type}: {media.title}")
     collection = None
 
-    # Check if collection exists
+    # Check if collection exists and retrieve it
     for col in plex.library.section(LIBRARY_NAME).collections():
         if col.title == collection_name:
             collection = col
-            app.logger.info(f"Collection '{collection_name}' already exists.")
+            app.logger.info(f"Collection '{collection_name}' exists.")
             break
 
-    # Create collection and add media if not found, else add media if not present
+    # Create collection if it doesn't exist
     if collection is None:
         app.logger.info(f"Creating new collection '{collection_name}'.")
         collection = plex.library.section(LIBRARY_NAME).createCollection(title=collection_name, items=[media])
-    elif media not in collection.items():
+        return
+
+    # Add media to collection if not present
+    if media not in collection.items():
         app.logger.info(f"Adding {media_type} '{media.title}' to collection '{collection_name}'.")
         collection.addItems([media])
-    else:
-        app.logger.info(f"{media_type.title()} '{media.title}' already in collection '{collection_name}'.")
+        # Move the media to the front of the collection
+        collection.moveItem(media, after=None)
+        app.logger.info(f"Moved {media_type} '{media.title}' to the front of collection.")
 
-    # Trimming the Collection
+    # Trimming and sorting the collection
     if len(collection.items()) > 100:
-        app.logger.info("Trimming the collection...")
-        sorted_media = sorted(collection.items(), key=lambda m: m.originallyAvailableAt)
-        media_to_remove = sorted_media[:-100]
+        app.logger.info("Trimming and sorting the collection...")
+        sorted_media = sorted(collection.items(), key=lambda m: m.originallyAvailableAt, reverse=True)
+        media_to_remove = sorted_media[100:]
         for m in media_to_remove:
             app.logger.info(f"Removing {media_type} '{m.title}' from collection.")
-        # Remove the media items in bulk after logging
+        # Remove excess media items
         collection.removeItems(media_to_remove)
-
 
 def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name, episode_id, is_dubbed):
     if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
@@ -133,13 +172,27 @@ def sonarr_webhook():
 
     return "Webhook received", 200
 
+def get_closest_movie(library, query_title, score_cutoff=75):
+    movies = [movie.title for movie in library.all()]
+    closest_match = process.extractOne(query_title, movies, score_cutoff=score_cutoff)
+    
+    if closest_match and closest_match[1] >= score_cutoff:
+        return library.get(closest_match[0])
+    else:
+        app.logger.info(f"No close match found for movie '{query_title}' with cutoff score of {score_cutoff}.")
+        return None
+
 def get_movie_from_data(LIBRARY_NAME, movie_title):
     app.logger.info(f"Searching for movie '{movie_title}' in library.")
     try:
-        movie = plex.library.section(LIBRARY_NAME).get(movie_title)
+        library = plex.library.section(LIBRARY_NAME)
+        movie = get_closest_movie(library, movie_title)
         app.logger.info(f"Found movie: {movie.title}")
-    except:
+    except NotFound:
         app.logger.error(f"Movie '{movie_title}' not found in library.")
+        movie = None
+    except Exception as e:
+        app.logger.error(f"Error searching for movie: {e}")
         movie = None
     return movie
 
