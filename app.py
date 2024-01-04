@@ -45,17 +45,7 @@ def is_english_dubbed(data):
 
     return is_dubbed_audio or is_custom_format
 
-def get_closest_episode(show, query_title, score_cutoff=90):
-    episodes = [ep.title for ep in show.episodes()]
-    closest_match = process.extractOne(query_title, episodes, score_cutoff=score_cutoff)
-    
-    if closest_match and closest_match[1] >= score_cutoff:
-        return show.episode(closest_match[0])
-    else:
-        app.logger.info(f"No close match found for episode '{query_title}' in show '{show.title}' with cutoff score of {score_cutoff}.")
-        return None
-
-def get_closest_show(library_section, query_title, score_cutoff=90):
+def get_closest_show(library_section, query_title, score_cutoff=75):
     shows = [show.title for show in library_section.all()]
     closest_match, score = process.extractOne(query_title, shows, score_cutoff=score_cutoff)
     
@@ -65,40 +55,49 @@ def get_closest_show(library_section, query_title, score_cutoff=90):
         app.logger.info(f"No close match found for '{query_title}' with cutoff score of {score_cutoff}.")
         return None
 
-def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, episode_name):
-    app.logger.info(f"Attempting to locate show '{show_name}' in library.")
+def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, max_retries=3, delay=10):
+    app.logger.info(f"Verifying the show '{show_name}' is in Plex...")
     library_section = plex.library.section(LIBRARY_NAME)
-    try:
-        show = library_section.get(show_name)
-    except NotFound:
-        app.logger.info("Exact match not found, attempting fuzzy match for show.")
-        show = get_closest_show(library_section, show_name)
+    retries = 0
+    show = None
 
-    if show:
-        # First try to find by season and episode number
+    # Try to find the show
+    while retries < max_retries and not show:
+        try:
+            show = library_section.get(show_name)
+            app.logger.info(f"Found show: {show.title}")
+        except NotFound:
+            app.logger.info(f"Show '{show_name}' not found. Retrying...")
+            time.sleep(delay)
+        retries += 1
+
+    # If show is not found, attempt fuzzy match
+    if not show:
+        app.logger.info(f"Attempting fuzzy match for show '{show_name}'.")
+        show = get_closest_show(library_section, show_name)
+        if not show:
+            app.logger.error(f"Show '{show_name}' not found in library after retries and fuzzy match.")
+            return None
+        else:
+            app.logger.info(f"Found show by fuzzy match: {show.title}")
+
+    # Try to find the episode
+    app.logger.info(f"Verifying the episode for '{show.title}' is in Plex...")
+    retries = 0
+    while retries < max_retries:
         try:
             episode = show.episode(season=season_number, episode=episode_number)
             app.logger.info(f"Found episode by season and number: {episode.title}")
+            return episode
         except NotFound:
-            # If not found, fall back to matching by episode name
-            app.logger.info(f"Exact match not found for Season {season_number}, Episode {episode_number}, attempting fuzzy match for episode.")
-            try:
-                episode = show.episode(episode_name)
-                app.logger.info(f"Found episode by name: {episode.title}")
-            except NotFound:
-                app.logger.info("No close match found for episode.")
-                episode = get_closest_episode(show, episode_name)
-            except Exception as e:
-                app.logger.error(f"Error fetching episode by name: {e}")
-                episode = None
+            app.logger.info(f"Episode not found. Retrying...")
+            time.sleep(delay)
         except Exception as e:
             app.logger.error(f"Error fetching episode by season and number: {e}")
-            episode = None
-    else:
-        app.logger.error(f"Show '{show_name}' not found in library.")
-        episode = None
+        retries += 1
 
-    return episode
+    app.logger.error(f"Episode for Season {season_number}, Episode {episode_number} not found in '{show.title}' after retries.")
+    return None
 
 def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_movie=False):
     media_type = 'movie' if is_movie else 'episode'
@@ -138,12 +137,12 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         # Remove excess media items
         collection.removeItems(media_to_remove)
 
-def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name, episode_id, season_number, episode_number):
+def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_id, season_number, episode_number):
     if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
         app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
     else:
         try:
-            episode = get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, episode_name)
+            episode = get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, max_retries=3, delay=10)
             manage_collection(LIBRARY_NAME, episode)
         except Exception as e:
             app.logger.info(f"Error processing request: {e}")
@@ -190,12 +189,11 @@ def sonarr_webhook():
         handle_deletion_event(episode_id)
     elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
         if is_recent_release:
-            time.sleep(30)
-            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id, season_number, episode_number)
+            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
 
     return "Webhook received", 200
 
-def get_closest_movie(library, query_title, score_cutoff=90):
+def get_closest_movie(library, query_title, score_cutoff=75):
     movies = [movie.title for movie in library.all()]
     closest_match = process.extractOne(query_title, movies, score_cutoff=score_cutoff)
     
