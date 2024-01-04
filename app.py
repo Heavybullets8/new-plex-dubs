@@ -2,7 +2,7 @@ from flask import Flask, request
 from plexapi.server import PlexServer
 from urllib.parse import urlparse
 from collections import deque
-import os, sys, time, json
+import os, sys, time
 
 # Cache for deleted episodes (episode identifier, timestamp)
 deleted_episodes = deque(maxlen=100)
