@@ -65,7 +65,7 @@ def get_closest_show(library_section, query_title, score_cutoff=90):
         app.logger.info(f"No close match found for '{query_title}' with cutoff score of {score_cutoff}.")
         return None
 
-def get_episode_from_data(LIBRARY_NAME, show_name, episode_name):
+def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, episode_name):
     app.logger.info(f"Attempting to locate show '{show_name}' in library.")
     library_section = plex.library.section(LIBRARY_NAME)
     try:
@@ -75,20 +75,29 @@ def get_episode_from_data(LIBRARY_NAME, show_name, episode_name):
         show = get_closest_show(library_section, show_name)
 
     if show:
+        # First try to find by season and episode number
         try:
-            episode = show.episode(episode_name)
+            episode = show.episode(season=season_number, episode=episode_number)
+            app.logger.info(f"Found episode by season and number: {episode.title}")
         except NotFound:
-            app.logger.info("Exact match not found, attempting fuzzy match for episode.")
-            episode = get_closest_episode(show, episode_name)
+            # If not found, fall back to matching by episode name
+            app.logger.info(f"Exact match not found for Season {season_number}, Episode {episode_number}, attempting fuzzy match for episode.")
+            try:
+                episode = show.episode(episode_name)
+                app.logger.info(f"Found episode by name: {episode.title}")
+            except NotFound:
+                app.logger.info("No close match found for episode.")
+                episode = get_closest_episode(show, episode_name)
+            except Exception as e:
+                app.logger.error(f"Error fetching episode by name: {e}")
+                episode = None
         except Exception as e:
-            app.logger.error(f"Error fetching episode: {e}")
+            app.logger.error(f"Error fetching episode by season and number: {e}")
             episode = None
     else:
         app.logger.error(f"Show '{show_name}' not found in library.")
         episode = None
 
-    if episode:
-        app.logger.info(f"Found episode: {episode.title}")
     return episode
 
 def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_movie=False):
@@ -129,12 +138,12 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         # Remove excess media items
         collection.removeItems(media_to_remove)
 
-def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name, episode_id):
+def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name, episode_id, season_number, episode_number):
     if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
         app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
     else:
         try:
-            episode = get_episode_from_data(LIBRARY_NAME, show_name, episode_name)
+            episode = get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, episode_name)
             manage_collection(LIBRARY_NAME, episode)
         except Exception as e:
             app.logger.info(f"Error processing request: {e}")
@@ -148,12 +157,14 @@ def handle_deletion_event(media_id):
         deleted_episodes.append((media_id, time.time()))
         app.logger.info("Updated deletion record due to upgrade.")
 
-def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date):
+def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date, season_number, episode_number):
     app.logger.info(" ")
     app.logger.info("Sonarr Webhook Received")
     app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
+    app.logger.info(f"Season: {season_number}")
+    app.logger.info(f"Episode: {episode_number}")
     app.logger.info(f"Air Date: {air_date}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
@@ -165,20 +176,20 @@ def sonarr_webhook():
     show_name = data.get('series', {}).get('title')
     episode_name = data.get('episodes', [{}])[0].get('title')
     episode_id = data.get('episodes', [{}])[0].get('id')
+    season_number = data.get('episodes', [{}])[0].get('seasonNumber')
+    episode_number = data.get('episodes', [{}])[0].get('episodeNumber')
     air_date = data.get('episodes', [{}])[0].get('airDate')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
 
     is_recent_release = is_recent_or_upcoming_release(air_date)
 
-    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date)
+    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date, season_number, episode_number)
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
     elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
-        if is_recent_release:
-            time.sleep(30)
-        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id)
+        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id, season_number, episode_number)
 
     return "Webhook received", 200
 
@@ -250,8 +261,6 @@ def radarr_webhook():
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
     elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
-        if is_recent_release:
-            time.sleep(30)
         radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
 
     return "Webhook received", 200
