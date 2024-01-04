@@ -146,13 +146,14 @@ def handle_deletion_event(media_id):
         deleted_episodes.append((media_id, time.time()))
         app.logger.info("Updated deletion record due to upgrade.")
 
-def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed):
+def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade):
     app.logger.info(" ")
     app.logger.info("Sonarr Webhook Received")
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
     app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
+    app.logger.info(f"Is Upgrade: {is_upgrade}")
 
 @app.route('/sonarr', methods=['POST'])
 def sonarr_webhook():
@@ -162,12 +163,13 @@ def sonarr_webhook():
     episode_name = data.get('episodes', [{}])[0].get('title')
     episode_id = data.get('episodes', [{}])[0].get('id')
     is_dubbed = is_english_dubbed(data)
+    is_upgrade = data.get('isUpgrade', False)
 
-    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed)
+    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade)
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
-    elif event_type == 'Download':
+    elif event_type == 'Download' and is_upgrade:
         sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id, is_dubbed)
 
     return "Webhook received", 200
@@ -206,13 +208,14 @@ def radarr_handle_download_event(LIBRARY_NAME, movie_name, movie_id, is_dubbed):
         except Exception as e:
             app.logger.info(f"Error processing request: {e}")
 
-def radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed):
+def radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade):
     app.logger.info(" ")
     app.logger.info("Radarr Webhook Received")
     app.logger.info(f"Movie Title: {movie_title}")
     app.logger.info(f"Movie ID: {movie_id}")
     app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
+    app.logger.info(f"Is Upgrade: {is_upgrade}")
 
 @app.route('/radarr', methods=['POST'])
 def radarr_webhook():
@@ -221,12 +224,13 @@ def radarr_webhook():
     movie_title = data.get('movie', {}).get('title')
     movie_id = data.get('movie', {}).get('id')
     is_dubbed = is_english_dubbed(data)
+    is_upgrade = data.get('isUpgrade', False)
 
-    radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed)
+    radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade)
 
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
-    elif event_type == 'Download':
+    elif event_type == 'Download' and is_upgrade:
         radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id, is_dubbed)
 
     return "Webhook received", 200
