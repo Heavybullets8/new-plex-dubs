@@ -3,7 +3,7 @@ from plexapi.server import PlexServer, NotFound
 from urllib.parse import urlparse
 from fuzzywuzzy import process
 from collections import deque
-import os, sys, time
+import os, sys, time, datetime
 
 # Cache for deleted episodes (episode identifier, timestamp)
 deleted_episodes = deque(maxlen=100)
@@ -157,6 +157,14 @@ def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
 
+def is_recent_or_upcoming_release(air_date_utc):
+    if not air_date_utc:
+        return False
+    air_date = datetime.datetime.fromisoformat(air_date_utc[:-1])
+    current_date = datetime.datetime.utcnow()
+    days_diff = (current_date - air_date).days
+    return days_diff <= 3 or air_date > current_date
+
 @app.route('/sonarr', methods=['POST'])
 def sonarr_webhook():
     data = request.get_json()
@@ -164,14 +172,17 @@ def sonarr_webhook():
     show_name = data.get('series', {}).get('title')
     episode_name = data.get('episodes', [{}])[0].get('title')
     episode_id = data.get('episodes', [{}])[0].get('id')
+    air_date_utc = data.get('episodes', [{}])[0].get('airDateUtc')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
 
-    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade)
+    is_recent_release = is_recent_or_upcoming_release(air_date_utc)
+
+    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date_utc)
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
-    elif event_type == 'Download' and is_upgrade and is_dubbed:
+    elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
         sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id)
 
     return "Webhook received", 200
@@ -219,6 +230,14 @@ def radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_up
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
 
+def is_recent_or_upcoming_release_movie(release_date_str):
+    if not release_date_str:
+        return False
+    release_date = datetime.datetime.strptime(release_date_str, '%Y-%m-%d').date()
+    current_date = datetime.datetime.utcnow().date()
+    days_diff = (current_date - release_date).days
+    return days_diff <= 3 or release_date > current_date
+
 @app.route('/radarr', methods=['POST'])
 def radarr_webhook():
     data = request.get_json()
@@ -227,12 +246,15 @@ def radarr_webhook():
     movie_id = data.get('movie', {}).get('id')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
+    release_date_str = data.get('movie', {}).get('releaseDate')
+    is_recent_release = is_recent_or_upcoming_release_movie(release_date_str)
+
 
     radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade)
 
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
-    elif event_type == 'Download' and is_upgrade and is_dubbed:
+    elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
         radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
 
     return "Webhook received", 200
