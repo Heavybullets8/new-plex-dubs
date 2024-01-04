@@ -5,7 +5,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install Flask, PlexAPI, fuzzywuzzy, and python-Levenshtein
-RUN pip install Flask PlexAPI requests fuzzywuzzy python-Levenshtein
+RUN pip install Flask PlexAPI fuzzywuzzy python-Levenshtein
 
 # Copy the current directory contents into the container at /app
 COPY . /app
