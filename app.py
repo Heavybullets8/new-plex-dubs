@@ -2,7 +2,11 @@ from flask import Flask, request
 from plexapi.server import PlexServer, NotFound
 from urllib.parse import urlparse
 from fuzzywuzzy import process
-import os, sys
+from collections import deque
+import os, sys, time
+
+# Cache for deleted episodes (episode identifier, timestamp)
+deleted_episodes = deque(maxlen=100)
 
 app = Flask(__name__)
 
@@ -125,21 +129,30 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         # Remove excess media items
         collection.removeItems(media_to_remove)
 
+def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name, episode_id):
+    if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
+        app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
+    else:
+        try:
+            episode = get_episode_from_data(LIBRARY_NAME, show_name, episode_name)
+            manage_collection(LIBRARY_NAME, episode)
+        except Exception as e:
+            app.logger.info(f"Error processing request: {e}")
 
-        
+def handle_deletion_event(media_id):
+    if media_id:
+        # Filter out the old entry of the media (movie or episode) if it exists
+        temp = [(m_id, timestamp) for m_id, timestamp in deleted_episodes if m_id != media_id]
+        deleted_episodes.clear()
+        deleted_episodes.extend(temp)
+        deleted_episodes.append((media_id, time.time()))
+        app.logger.info("Updated deletion record due to upgrade.")
 
-def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name):
-    try:
-        episode = get_episode_from_data(LIBRARY_NAME, show_name, episode_name)
-        manage_collection(LIBRARY_NAME, episode)
-    except Exception as e:
-        app.logger.info(f"Error processing request: {e}")
-
-def sonarr_log_event_details(event_type, show_name, episode_name, is_dubbed, is_upgrade):
+def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade):
     app.logger.info(" ")
     app.logger.info("Sonarr Webhook Received")
     app.logger.info(f"Show Title: {show_name}")
-    app.logger.info(f"Episode: {episode_name}")
+    app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
     app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
@@ -150,13 +163,16 @@ def sonarr_webhook():
     event_type = data.get('eventType')
     show_name = data.get('series', {}).get('title')
     episode_name = data.get('episodes', [{}])[0].get('title')
+    episode_id = data.get('episodes', [{}])[0].get('id')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
 
-    sonarr_log_event_details(event_type, show_name, episode_name, is_dubbed, is_upgrade)
+    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade)
 
-    if event_type == 'Download' and is_upgrade and is_dubbed:
-        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name)
+    if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
+        handle_deletion_event(episode_id)
+    elif event_type == 'Download' and is_upgrade and is_dubbed:
+        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id)
 
     return "Webhook received", 200
 
@@ -184,17 +200,21 @@ def get_movie_from_data(LIBRARY_NAME, movie_title):
         movie = None
     return movie
 
-def radarr_handle_download_event(LIBRARY_NAME, movie_name):
-    try:
-        movie = get_movie_from_data(movie_name)
-        manage_collection(LIBRARY_NAME, movie, is_movie=True)
-    except Exception as e:
-        app.logger.info(f"Error processing request: {e}")
+def radarr_handle_download_event(LIBRARY_NAME, movie_name, movie_id):
+    if any(m_id == movie_id for m_id, _ in deleted_episodes):
+        app.logger.info("Skipping as it was a previous upgrade of an English dubbed movie.")
+    else:
+        try:
+            movie = get_movie_from_data(movie_name)
+            manage_collection(LIBRARY_NAME, movie, is_movie=True)
+        except Exception as e:
+            app.logger.info(f"Error processing request: {e}")
 
-def radarr_log_event_details(event_type, movie_title, is_dubbed, is_upgrade):
+def radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade):
     app.logger.info(" ")
     app.logger.info("Radarr Webhook Received")
     app.logger.info(f"Movie Title: {movie_title}")
+    app.logger.info(f"Movie ID: {movie_id}")
     app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
@@ -204,13 +224,16 @@ def radarr_webhook():
     data = request.get_json()
     event_type = data.get('eventType')
     movie_title = data.get('movie', {}).get('title')
+    movie_id = data.get('movie', {}).get('id')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
 
-    radarr_log_event_details(event_type, movie_title, is_dubbed, is_upgrade)
+    radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade)
 
-    if event_type == 'Download' and is_upgrade and is_dubbed:
-        radarr_handle_download_event(RADARR_LIBRARY, movie_title)
+    if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
+        handle_deletion_event(movie_id) 
+    elif event_type == 'Download' and is_upgrade and is_dubbed:
+        radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
 
     return "Webhook received", 200
 
