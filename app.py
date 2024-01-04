@@ -109,7 +109,7 @@ def handle_deletion_event(media_id):
 
 def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed):
     app.logger.info(" ")
-    app.logger.info("Webhook Received")
+    app.logger.info("Sonarr Webhook Received")
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
     app.logger.info(f"Event Type: {event_type}")
