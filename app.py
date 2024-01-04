@@ -103,8 +103,6 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
     if collection is None:
         app.logger.info(f"Creating new collection '{collection_name}'.")
         collection = plex.library.section(LIBRARY_NAME).createCollection(title=collection_name, items=[media])
-        # Set collection visibility
-        collection.updateVisibility(recommended=True, home=True, shared=True)
         # Set collection sort
         collection.sortUpdate(sort="custom")
         return
