@@ -103,6 +103,10 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
     if collection is None:
         app.logger.info(f"Creating new collection '{collection_name}'.")
         collection = plex.library.section(LIBRARY_NAME).createCollection(title=collection_name, items=[media])
+        # Set collection visibility
+        collection.updateVisibility(recommended=True, home=True, shared=True)
+        # Set collection sort
+        collection.sortUpdate(sort="custom")
         return
 
     # Add media to collection if not present
@@ -122,6 +126,9 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
             app.logger.info(f"Removing {media_type} '{m.title}' from collection.")
         # Remove excess media items
         collection.removeItems(media_to_remove)
+
+
+        
 
 def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_name):
     try:
