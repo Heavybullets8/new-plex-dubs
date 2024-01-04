@@ -148,22 +148,15 @@ def handle_deletion_event(media_id):
         deleted_episodes.append((media_id, time.time()))
         app.logger.info("Updated deletion record due to upgrade.")
 
-def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade):
+def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date):
     app.logger.info(" ")
     app.logger.info("Sonarr Webhook Received")
+    app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"Show Title: {show_name}")
     app.logger.info(f"Episode: {episode_name} - ID: {episode_id}")
-    app.logger.info(f"Event Type: {event_type}")
+    app.logger.info(f"Air Date: {air_date}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
-
-def is_recent_or_upcoming_release(air_date_utc):
-    if not air_date_utc:
-        return False
-    air_date = datetime.datetime.fromisoformat(air_date_utc[:-1])
-    current_date = datetime.datetime.utcnow()
-    days_diff = (current_date - air_date).days
-    return days_diff <= 3 or air_date > current_date
 
 @app.route('/sonarr', methods=['POST'])
 def sonarr_webhook():
@@ -172,13 +165,13 @@ def sonarr_webhook():
     show_name = data.get('series', {}).get('title')
     episode_name = data.get('episodes', [{}])[0].get('title')
     episode_id = data.get('episodes', [{}])[0].get('id')
-    air_date_utc = data.get('episodes', [{}])[0].get('airDateUtc')
+    air_date = data.get('episodes', [{}])[0].get('airDate')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
 
-    is_recent_release = is_recent_or_upcoming_release(air_date_utc)
+    is_recent_release = is_recent_or_upcoming_release(air_date)
 
-    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date_utc)
+    sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date)
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
@@ -221,22 +214,23 @@ def radarr_handle_download_event(LIBRARY_NAME, movie_name, movie_id):
         except Exception as e:
             app.logger.info(f"Error processing request: {e}")
 
-def radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade):
+def radarr_log_event_details(event_type, movie_title, movie_id, release_date, is_dubbed, is_upgrade):
     app.logger.info(" ")
     app.logger.info("Radarr Webhook Received")
+    app.logger.info(f"Event Type: {event_type}")
     app.logger.info(f"Movie Title: {movie_title}")
     app.logger.info(f"Movie ID: {movie_id}")
-    app.logger.info(f"Event Type: {event_type}")
+    app.logger.info(f"Release Date: {release_date}")
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
 
-def is_recent_or_upcoming_release_movie(release_date_str):
-    if not release_date_str:
+def is_recent_or_upcoming_release(date_str):
+    if not date_str:
         return False
-    release_date = datetime.datetime.strptime(release_date_str, '%Y-%m-%d').date()
+    release_or_air_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
     current_date = datetime.datetime.utcnow().date()
-    days_diff = (current_date - release_date).days
-    return days_diff <= 3 or release_date > current_date
+    days_diff = (current_date - release_or_air_date).days
+    return 0 <= days_diff <= 4 or release_or_air_date > current_date
 
 @app.route('/radarr', methods=['POST'])
 def radarr_webhook():
@@ -246,11 +240,10 @@ def radarr_webhook():
     movie_id = data.get('movie', {}).get('id')
     is_dubbed = is_english_dubbed(data)
     is_upgrade = data.get('isUpgrade', False)
-    release_date_str = data.get('movie', {}).get('releaseDate')
-    is_recent_release = is_recent_or_upcoming_release_movie(release_date_str)
+    release_date = data.get('movie', {}).get('releaseDate')
+    is_recent_release = is_recent_or_upcoming_release(release_date)
 
-
-    radarr_log_event_details(event_type, movie_title, movie_id, is_dubbed, is_upgrade)
+    radarr_log_event_details(event_type, movie_title, movie_id, release_date, is_dubbed, is_upgrade)
 
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
