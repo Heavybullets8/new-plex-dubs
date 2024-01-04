@@ -24,13 +24,13 @@ Additionally, I use tags for anime series, so any of my anime series will have t
 
 ## Sonarr Settings
 
-![image](https://github.com/Heavybullets8/new-plex-dubs/assets/20793231/1a2ca8d6-4d79-4188-b282-80c034af5479)
+![image](https://github.com/Heavybullets8/new-plex-dubs/assets/20793231/1f8ea769-4cc3-4e55-b970-bf27b63a32ac)
 
 > `http://URL:PORT/sonarr`
 
 ## Radarr Settings 
 
-![image](https://github.com/Heavybullets8/new-plex-dubs/assets/20793231/5003fdeb-7beb-4e3c-8fd1-d345b93876d5)
+![image](https://github.com/Heavybullets8/new-plex-dubs/assets/20793231/1f278cd9-e3d0-41f6-a90e-6527b4348941)
 
 > `http://URL:PORT/radarr`
 
