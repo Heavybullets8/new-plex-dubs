@@ -1,9 +1,5 @@
 # Plex Dubbed Episodes Updater Docker Container
 
-## Overview
-
-Receives webhooks from Sonarr and Radarr, and updates a Plex collection with the latest dubbed episodes/movies.
-
 ## Environment Variables
 
 | **Variable**            | **Required** | **Default** | **Description**                                        | **Example**            |
