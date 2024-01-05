@@ -21,4 +21,4 @@ ENV RADARR_LIBRARY=""
 EXPOSE $PORT
 
 # Run app.py using Gunicorn when the container launches
-CMD gunicorn -w 4 -b 0.0.0.0:$PORT app:app
+CMD gunicorn --log-level info -w 4 -b 0.0.0.0:$PORT app:app

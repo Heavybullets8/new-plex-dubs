@@ -3,12 +3,24 @@ from plexapi.server import PlexServer, NotFound
 from urllib.parse import urlparse
 from fuzzywuzzy import process
 from collections import deque
-import os, sys, time, datetime
+import os, sys, time, datetime, logging
+
+app = Flask(__name__)
+
+# Remove Flask's default handler
+for handler in app.logger.handlers:
+    app.logger.removeHandler(handler)
+
+# Set up custom logging
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+))
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
 
 # Cache for deleted episodes (episode identifier, timestamp)
 deleted_episodes = deque(maxlen=100)
-
-app = Flask(__name__)
 
 def get_env_variable(var_name, required=True):
     value = os.getenv(var_name)
