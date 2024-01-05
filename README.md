@@ -16,6 +16,33 @@ Receives webhooks from Sonarr and Radarr, and updates a Plex collection with the
 | `MAX_COLLECTION_SIZE`   | ❌           | `100`       | Max number of episodes/movies in the collection        | `100`                  |
 | `MAX_DATE_DIFF`         | ❌           | `4`         | Max days difference for considering recent releases    | `4`                    |
 
+## Requirements
+
+### Tags
+
+- **Purpose:** Tags are an essential feature in both Sonarr and Radarr. They are used to categorize and manage anime series and movies, respectively.
+- **Functionality:** In Sonarr, tags help in identifying and grouping anime series, while in Radarr, they are used for the same purpose with anime movies.
+- **Why:** The container looks for english tracks reported from sonarr, so sending all series to the container would result in false positives. Tags are used to filter out non-anime series and movies.
+
+## How it Works
+
+### Download Actions
+
+- **Trigger**: Occurs when an episode or movie is downloaded.
+- **Conditions**:
+  - The media must be dubbed.
+  - It is either an upgrade or a recent release (as determined by `MAX_DATE_DIFF`).
+  - The media ID is not already in the deque (to avoid re-adding to collection in the case of upgrades).
+- **Action**:
+  - If all conditions are met, the media is added to the collection.
+  - This ensures that only relevant, upgraded, or newly released dubbed media is included.
+
+### Deletion Actions
+
+- **Trigger**: Occurs when an episode or movie is deleted for an upgrade.
+- **Condition**: Checks if the deleted media contained an English track.
+- **Action**: Adds the media ID to a deque. This prevents re-adding the same media when the upgraded version is downloaded.
+
 ## Usage
 
 1. Set the environment variables in your Docker configuration.
@@ -23,8 +50,6 @@ Receives webhooks from Sonarr and Radarr, and updates a Plex collection with the
 3. Configure Sonarr and Radarr to send webhooks to the container.
 
 This container listens for webhooks from Sonarr and Radarr, and when it receives notification of an episode or movie upgrade, it checks if the media is dubbed. If dubbed, it updates the specified Plex collection with the latest media.
-
-Additionally, I use tags for anime series, so any of my anime series will have the tag `anime` and only be sent to the webhook if it possesses that tag:
 
 ## Sonarr Settings
 
