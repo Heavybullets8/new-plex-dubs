@@ -1,19 +1,23 @@
 # Plex Dubbed Episodes Updater Docker Container
 
 ## Overview
-This Docker container updates your Plex server with the latest dubbed episodes that were upgraded. It handles webhooks from Sonarr and Radarr to manage a collection of the latest dubbed episodes and movies in your Plex library.
+
+Receives webhooks from Sonarr and Radarr, and updates a Plex collection with the latest dubbed episodes/movies.
 
 ## Environment Variables
 
-| Variable        | Description                           | Example Value      |
-|-----------------|---------------------------------------|--------------------|
-| `PORT`          | The port the container will listen on | `5000`             |
-| `PLEX_URL`      | URL of your Plex server               | `http://plex:32400`|
-| `PLEX_TOKEN`    | Your Plex server token                | `YourPlexToken`    |
-| `SONARR_LIBRARY`| Sonarr library name in Plex           | `Anime Series`     |
-| `RADARR_LIBRARY`| Radarr library name in Plex           | `Anime Movies`     |
+| Variable             | Required/Default                 | Description                                           | Example Value      |
+|----------------------|----------------------------------|-------------------------------------------------------|--------------------|
+| `PORT`               | Not required, default `5000`     | The port the container will listen on                 | `5000`             |
+| `PLEX_URL`           | **Required**, no default         | URL of your Plex server                               | `http://plex:32400`|
+| `PLEX_TOKEN`         | **Required**, no default         | Your Plex server token                                | `YourPlexToken`    |
+| `PLEX_ANIME_SERIES`  | **Required**, no default         | Plex library name for anime series (Sonarr)           | `Anime Series`     |
+| `PLEX_ANIME_MOVIES`  | **Required**, no default         | Plex library name for anime movies (Radarr)           | `Anime Movies`     |
+| `MAX_COLLECTION_SIZE`| Not required, default `100`      | Max number of episodes/movies in the collection       | `100`              |
+| `MAX_DATE_DIFF`      | Not required, default `4`        | Max days difference for considering recent releases   | `4`                |
 
 ## Usage
+
 1. Set the environment variables in your Docker configuration.
 2. Deploy the Docker container.
 3. Configure Sonarr and Radarr to send webhooks to the container.

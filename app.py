@@ -22,26 +22,40 @@ app.logger.setLevel(logging.INFO)
 # Cache for deleted episodes (episode identifier, timestamp)
 deleted_episodes = deque(maxlen=100)
 
-def get_env_variable(var_name, required=True):
-    value = os.getenv(var_name)
-    if required and not value:
-        app.logger.info(f"Error: The {var_name} environment variable is required.")
-        sys.exit(1)
+def get_env_variable(var_name, default=None, required=True, errors=[]):
+    value = os.getenv(var_name, default)
+    if required and (value is None or value == ''):
+        errors.append(f"Error: The {var_name} environment variable is required.")
     return value
+
+# List to collect environment variable errors
+env_errors = []
+
+# Get environment variables
+SONARR_LIBRARY = get_env_variable('PLEX_ANIME_SERIES', required=False, errors=env_errors)
+RADARR_LIBRARY = get_env_variable('PLEX_ANIME_MOVIES', required=False, errors=env_errors)
+PLEX_URL = get_env_variable('PLEX_URL', required=True, errors=env_errors)
+PLEX_TOKEN = get_env_variable('PLEX_TOKEN', required=True, errors=env_errors)
+MAX_COLLECTION_SIZE = int(get_env_variable('MAX_COLLECTION_SIZE', default='100', required=False, errors=env_errors))
+MAX_DATE_DIFF = int(get_env_variable('MAX_DATE_DIFF', default='4', required=False, errors=env_errors))
+
+# Validate that at least one of SONARR_LIBRARY or RADARR_LIBRARY is provided
+if not SONARR_LIBRARY and not RADARR_LIBRARY:
+    env_errors.append("Error: At least one of PLEX_ANIME_SERIES or PLEX_ANIME_MOVIES environment variables is required.")
+
+# Check for environment variable errors
+if env_errors:
+    for error in env_errors:
+        app.logger.error(error)
+    sys.exit(1)
 
 def is_valid_url(url):
     parsed = urlparse(url)
     return all([parsed.scheme, parsed.netloc])
 
-# Get environment variables
-SONARR_LIBRARY = get_env_variable('SONARR_LIBRARY')
-RADARR_LIBRARY = get_env_variable('RADARR_LIBRARY')
-PLEX_URL = get_env_variable('PLEX_URL')
-PLEX_TOKEN = get_env_variable('PLEX_TOKEN')
-
 # Validate PLEX_URL
 if not is_valid_url(PLEX_URL):
-    app.logger.info("Error: PLEX_URL is not a valid URL.")
+    app.logger.error(f"Error: {PLEX_URL} is not a valid URL.")
     sys.exit(1)
 
 plex = PlexServer(PLEX_URL, PLEX_TOKEN)
@@ -140,10 +154,10 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         app.logger.info(f"Moved {media_type} '{media.title}' to the front of collection.")
 
     # Trimming and sorting the collection
-    if len(collection.items()) > 100:
+    if len(collection.items()) > MAX_COLLECTION_SIZE:
         app.logger.info("Trimming and sorting the collection...")
         sorted_media = sorted(collection.items(), key=lambda m: m.originallyAvailableAt, reverse=True)
-        media_to_remove = sorted_media[100:]
+        media_to_remove = sorted_media[MAX_COLLECTION_SIZE:]
         for m in media_to_remove:
             app.logger.info(f"Removing {media_type} '{m.title}' from collection.")
         # Remove excess media items
@@ -255,7 +269,7 @@ def is_recent_or_upcoming_release(date_str):
     release_or_air_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
     current_date = datetime.datetime.utcnow().date()
     days_diff = (current_date - release_or_air_date).days
-    return 0 <= days_diff <= 4 or release_or_air_date > current_date
+    return 0 <= days_diff <= MAX_DATE_DIFF or release_or_air_date > current_date
 
 @app.route('/radarr', methods=['POST'])
 def radarr_webhook():
