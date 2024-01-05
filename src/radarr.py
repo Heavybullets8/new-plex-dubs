@@ -47,7 +47,6 @@ def radarr_log_event_details(event_type, movie_title, movie_id, release_date, is
     app.logger.info(f"English Dubbed: {is_dubbed}")
     app.logger.info(f"Is Upgrade: {is_upgrade}")
 
-@app.route('/radarr', methods=['POST'])
 def radarr_webhook(request):
     data = request.get_json()
     event_type = data.get('eventType')
