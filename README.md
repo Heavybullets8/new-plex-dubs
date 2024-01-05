@@ -6,15 +6,15 @@ Receives webhooks from Sonarr and Radarr, and updates a Plex collection with the
 
 ## Environment Variables
 
-| Variable             | Required/Default                 | Description                                           | Example Value      |
-|----------------------|----------------------------------|-------------------------------------------------------|--------------------|
-| `PORT`               | Not required, default `5000`     | The port the container will listen on                 | `5000`             |
-| `PLEX_URL`           | **Required**, no default         | URL of your Plex server                               | `http://plex:32400`|
-| `PLEX_TOKEN`         | **Required**, no default         | Your Plex server token                                | `YourPlexToken`    |
-| `PLEX_ANIME_SERIES`  | **Required**, no default         | Plex library name for anime series (Sonarr)           | `Anime Series`     |
-| `PLEX_ANIME_MOVIES`  | **Required**, no default         | Plex library name for anime movies (Radarr)           | `Anime Movies`     |
-| `MAX_COLLECTION_SIZE`| Not required, default `100`      | Max number of episodes/movies in the collection       | `100`              |
-| `MAX_DATE_DIFF`      | Not required, default `4`        | Max days difference for considering recent releases   | `4`                |
+| **Variable**            | **Required** | **Default** | **Description**                                        | **Example**            |
+|-------------------------|--------------|-------------|--------------------------------------------------------|------------------------|
+| `PORT`                  | ❌           | `5000`      | The port the container will listen on                  | `5000`                 |
+| `PLEX_URL`              | ✅           |             | URL of your Plex server                                | `http://plex:32400`    |
+| `PLEX_TOKEN`            | ✅           |             | Your Plex server token                                 | `YourPlexToken`        |
+| `PLEX_ANIME_SERIES`     | ✅           |             | Plex library name for anime series (Sonarr)            | `Anime Series`         |
+| `PLEX_ANIME_MOVIES`     | ✅           |             | Plex library name for anime movies (Radarr)            | `Anime Movies`         |
+| `MAX_COLLECTION_SIZE`   | ❌           | `100`       | Max number of episodes/movies in the collection        | `100`                  |
+| `MAX_DATE_DIFF`         | ❌           | `4`         | Max days difference for considering recent releases    | `4`                    |
 
 ## Usage
 
@@ -32,7 +32,7 @@ Additionally, I use tags for anime series, so any of my anime series will have t
 
 > `http://URL:PORT/sonarr`
 
-## Radarr Settings 
+## Radarr Settings
 
 ![image](https://github.com/Heavybullets8/new-plex-dubs/assets/20793231/11aa2328-438b-47bd-bafd-4a634d373f64)
 
