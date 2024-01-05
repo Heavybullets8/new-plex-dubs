@@ -99,7 +99,6 @@ def sonarr_webhook(request):
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
     elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
-        if is_recent_release:
-            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
+        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
 
     return "Webhook received", 200
