@@ -98,7 +98,14 @@ def sonarr_webhook(request):
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
-    elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
-        sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
+    elif event_type == 'Download' and is_dubbed:
+        if is_upgrade:
+            app.logger.info(f"Processing upgrade for: {show_name} - {episode_name} (ID: {episode_id})")
+            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
+        elif is_recent_release:
+            app.logger.info(f"Processing recent release for: {show_name} - {episode_name} (ID: {episode_id})")
+            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
+        else:
+            app.logger.info(f"Skipping: {show_name} - {episode_name} (ID: {episode_id}) - Not an upgrade or recent release")
 
     return "Webhook received", 200

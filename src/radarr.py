@@ -61,7 +61,14 @@ def radarr_webhook(request):
 
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
-    elif event_type == 'Download' and (is_upgrade or is_recent_release) and is_dubbed:
-        radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
+    elif event_type == 'Download' and is_dubbed:
+        if is_upgrade:
+            app.logger.info(f"Processing upgrade for: {movie_title} (ID: {movie_id})")
+            radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
+        elif is_recent_release:
+            app.logger.info(f"Processing recent release for: {movie_title} (ID: {movie_id})")
+            radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
+        else:
+            app.logger.info(f"Skipping: {movie_title} (ID: {movie_id}) - Not an upgrade or recent release")
 
     return "Webhook received", 200
