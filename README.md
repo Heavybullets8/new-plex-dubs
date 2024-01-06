@@ -15,7 +15,7 @@
 > ✅ = Required  
 > ❌ = Optional  
 > ⚠️ = Check Notes  
-> Note: Either `PLEX_ANIME_SERIES` or `PLEX_ANIME_MOVIES` must be provided, but it's not mandatory to provide both.
+> Note: Either `PLEX_ANIME_SERIES` or `PLEX_ANIME_MOVIES` must be provided, but it's not mandatory to provide both.  
 > Note: `MAX_DATE_DIFF` is useful for those anime that release dubbed episodes at the same time that subbed episodes come out.
 
 ## Requirements
