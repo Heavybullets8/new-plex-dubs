@@ -53,11 +53,9 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         collection.removeItems(media_to_remove)
 
 def handle_deletion_event(media_id):
-    if media_id and media_id not in deleted_media_ids:
+    if media_id not in deleted_media_ids:
         deleted_media_ids.append(media_id)
-        app.logger.info(f"Added {media_id} to deletion record due to upgrade.")
-    elif media_id in deleted_media_ids:
-        app.logger.info(f"{media_id} already in deletion record.")
+        app.logger.info(f"Added {media_id} to deletion record.")
 
 def is_recent_or_upcoming_release(date_str):
     if not date_str:
@@ -68,12 +66,7 @@ def is_recent_or_upcoming_release(date_str):
     return 0 <= days_diff <= MAX_DATE_DIFF or release_or_air_date > current_date
 
 def was_media_deleted(media_id):
-    app.logger.info(f"Current deleted media IDs: {list(deleted_media_ids)}")
-    app.logger.info(f"Checking for media ID: {media_id}")
-
     if any(m_id == media_id for m_id in deleted_media_ids):
-        app.logger.info(f"Media ID {media_id} was found in deleted media IDs.")
         return True
     else:
-        app.logger.info(f"Media ID {media_id} was not found in deleted media IDs.")
         return False
