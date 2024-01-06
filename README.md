@@ -1,6 +1,7 @@
 # Plex Dubbed Episodes Updater Docker Container
 
 ## Environment Variables
+
 | **Variable**            | **Required**  | **Default** | **Description**                                                                         | **Example**            |
 |-------------------------|---------------|-------------|-----------------------------------------------------------------------------------------|------------------------|
 | `PORT`                  | ❌            | `5000`      | The port the container will listen on                                                   | `5000`                 |
@@ -11,19 +12,17 @@
 | `MAX_COLLECTION_SIZE`   | ❌            | `100`       | Max number of episodes/movies in the collection                                         | `100`                  |
 | `MAX_DATE_DIFF`         | ❌            | `4`         | Max days difference for considering recent releases                                     | `4`                    |
 
-> ✅ = Required
-
-> ❌ = Optional
-
-> ⚠️ = Check Notes
-
+> ✅ = Required  
+> ❌ = Optional  
+> ⚠️ = Check Notes  
 > Note: Either `PLEX_ANIME_SERIES` or `PLEX_ANIME_MOVIES` must be provided, but it's not mandatory to provide both.
+> Note: `MAX_DATE_DIFF` is useful for those anime that release dubbed episodes at the same time that subbed episodes come out.
+
 ## Requirements
 
 ### Tags
 
-- **Purpose:** Tags are an essential feature in both Sonarr and Radarr. They are used to categorize and manage anime series and movies, respectively.
-- **Functionality:** In Sonarr, tags help in identifying and grouping anime series, while in Radarr, they are used for the same purpose with anime movies.
+- **Purpose:** I use them to identify anime series and movies.
 - **Why:** The container looks for english tracks reported from sonarr, so sending all series to the container would result in false positives. Tags are used to filter out non-anime series and movies.
 
 ## How it Works
@@ -67,6 +66,6 @@ This container listens for webhooks from Sonarr and Radarr, and when it receives
 
 ## Warning
 
-I made this purely for personal use, but published it in the event anyone else found it useful. I likely will not offer any type of support. 
+I made this purely for personal use, but published it in the event anyone else found it useful. I likely will not offer any type of support.
 
-The Plex token is stored as an environment variable, which is unsafe, so use this at your own risk. 
+The Plex token is stored as an environment variable, which is unsafe, so use this at your own risk.
