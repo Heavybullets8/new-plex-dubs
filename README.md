@@ -1,17 +1,23 @@
 # Plex Dubbed Episodes Updater Docker Container
 
 ## Environment Variables
+| **Variable**            | **Required**  | **Default** | **Description**                                                                         | **Example**            |
+|-------------------------|---------------|-------------|-----------------------------------------------------------------------------------------|------------------------|
+| `PORT`                  | ❌            | `5000`      | The port the container will listen on                                                   | `5000`                 |
+| `PLEX_URL`              | ✅            |             | URL of your Plex server                                                                 | `http://plex:32400`    |
+| `PLEX_TOKEN`            | ✅            |             | Your Plex server token                                                                  | `YourPlexToken`        |
+| `PLEX_ANIME_SERIES`     | ⚠️            |             | Plex library name for anime series (Sonarr).                                            | `Anime Series`         |
+| `PLEX_ANIME_MOVIES`     | ⚠️            |             | Plex library name for anime movies (Radarr).                                            | `Anime Movies`         |
+| `MAX_COLLECTION_SIZE`   | ❌            | `100`       | Max number of episodes/movies in the collection                                         | `100`                  |
+| `MAX_DATE_DIFF`         | ❌            | `4`         | Max days difference for considering recent releases                                     | `4`                    |
 
-| **Variable**            | **Required** | **Default** | **Description**                                        | **Example**            |
-|-------------------------|--------------|-------------|--------------------------------------------------------|------------------------|
-| `PORT`                  | ❌           | `5000`      | The port the container will listen on                  | `5000`                 |
-| `PLEX_URL`              | ✅           |             | URL of your Plex server                                | `http://plex:32400`    |
-| `PLEX_TOKEN`            | ✅           |             | Your Plex server token                                 | `YourPlexToken`        |
-| `PLEX_ANIME_SERIES`     | ✅           |             | Plex library name for anime series (Sonarr)            | `Anime Series`         |
-| `PLEX_ANIME_MOVIES`     | ✅           |             | Plex library name for anime movies (Radarr)            | `Anime Movies`         |
-| `MAX_COLLECTION_SIZE`   | ❌           | `100`       | Max number of episodes/movies in the collection        | `100`                  |
-| `MAX_DATE_DIFF`         | ❌           | `4`         | Max days difference for considering recent releases    | `4`                    |
+> ✅ = Required
 
+> ❌ = Optional
+
+> ⚠️ = Check Notes
+
+> Note: Either `PLEX_ANIME_SERIES` or `PLEX_ANIME_MOVIES` must be provided, but it's not mandatory to provide both.
 ## Requirements
 
 ### Tags
