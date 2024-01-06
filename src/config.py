@@ -18,8 +18,8 @@ handler.setFormatter(logging.Formatter(
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
 
-# Cache for deleted episodes (episode identifier, timestamp)
-deleted_episodes = deque(maxlen=100)
+# Cache for deleted media IDs
+deleted_media_ids = deque(maxlen=100)
 
 def get_env_variable(var_name, default=None, required=True, errors=[]):
     value = os.getenv(var_name, default)

@@ -1,5 +1,5 @@
-from .config import app, plex, deleted_episodes, MAX_COLLECTION_SIZE, MAX_DATE_DIFF
-import time, datetime
+from .config import app, plex, deleted_media_ids, MAX_COLLECTION_SIZE, MAX_DATE_DIFF
+import datetime
 
 def is_english_dubbed(data):
     audio_languages = data.get('episodeFile', {}).get('mediaInfo', {}).get('audioLanguages', [])
@@ -51,13 +51,11 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         collection.removeItems(media_to_remove)
 
 def handle_deletion_event(media_id):
-    if media_id:
-        # Filter out the old entry of the media (movie or episode) if it exists
-        temp = [(m_id, timestamp) for m_id, timestamp in deleted_episodes if m_id != media_id]
-        deleted_episodes.clear()
-        deleted_episodes.extend(temp)
-        deleted_episodes.append((media_id, time.time()))
-        app.logger.info("Updated deletion record due to upgrade.")
+    if media_id and media_id not in deleted_media_ids:
+        deleted_media_ids.append(media_id)
+        app.logger.info(f"Added {media_id} to deletion record due to upgrade.")
+    elif media_id in deleted_media_ids:
+        app.logger.info(f"{media_id} already in deletion record.")
 
 def is_recent_or_upcoming_release(date_str):
     if not date_str:
@@ -66,3 +64,8 @@ def is_recent_or_upcoming_release(date_str):
     current_date = datetime.datetime.utcnow().date()
     days_diff = (current_date - release_or_air_date).days
     return 0 <= days_diff <= MAX_DATE_DIFF or release_or_air_date > current_date
+
+def was_media_deleted(media_id):
+    if any(m_id == media_id for m_id in deleted_media_ids):
+        return True
+    return False

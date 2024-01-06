@@ -1,5 +1,5 @@
-from .config import app, plex, deleted_episodes, SONARR_LIBRARY
-from .shared import is_english_dubbed, manage_collection, handle_deletion_event, is_recent_or_upcoming_release
+from .config import app, plex, SONARR_LIBRARY
+from .shared import is_english_dubbed, manage_collection, handle_deletion_event, is_recent_or_upcoming_release, was_media_deleted
 import time
 from fuzzywuzzy import process
 from plexapi.exceptions import NotFound
@@ -59,7 +59,7 @@ def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number
     return None
 
 def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_id, season_number, episode_number):
-    if any(ep_id == episode_id for ep_id, _ in deleted_episodes):
+    if was_media_deleted(episode_id):
         app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
     else:
         try:
@@ -67,6 +67,17 @@ def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_id, season_num
             manage_collection(LIBRARY_NAME, episode)
         except Exception as e:
             app.logger.info(f"Error processing request: {e}")
+
+def process_download_event(library_name, show_name, episode_name, episode_id, season_number, episode_number, is_upgrade, is_recent_release):
+    if is_upgrade:
+        app.logger.info(f"Processing upgrade for: {show_name} - {episode_name} (ID: {episode_id})")
+    elif is_recent_release:
+        app.logger.info(f"Processing recent release for: {show_name} - {episode_name} (ID: {episode_id})")
+    else:
+        app.logger.info(f"Skipping: {show_name} - {episode_name} (ID: {episode_id}) - Not an upgrade or recent release")
+        return
+
+    sonarr_handle_download_event(library_name, show_name, episode_id, season_number, episode_number)
 
 def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date, season_number, episode_number):
     app.logger.info(" ")
@@ -99,13 +110,8 @@ def sonarr_webhook(request):
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
     elif event_type == 'Download' and is_dubbed:
-        if is_upgrade:
-            app.logger.info(f"Processing upgrade for: {show_name} - {episode_name} (ID: {episode_id})")
-            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
-        elif is_recent_release:
-            app.logger.info(f"Processing recent release for: {show_name} - {episode_name} (ID: {episode_id})")
-            sonarr_handle_download_event(SONARR_LIBRARY, show_name, episode_id, season_number, episode_number)
-        else:
-            app.logger.info(f"Skipping: {show_name} - {episode_name} (ID: {episode_id}) - Not an upgrade or recent release")
+        process_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id, season_number, episode_number, is_upgrade, is_recent_release)
+    else:
+        app.logger.info("Skipping: does not meet criteria for processing.")
 
     return "Webhook received", 200

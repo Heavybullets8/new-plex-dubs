@@ -1,5 +1,5 @@
-from .config import app, plex, deleted_episodes, RADARR_LIBRARY
-from .shared import is_english_dubbed, manage_collection, is_recent_or_upcoming_release, handle_deletion_event
+from .config import app, plex, RADARR_LIBRARY
+from .shared import is_english_dubbed, manage_collection, is_recent_or_upcoming_release, handle_deletion_event, was_media_deleted
 from plexapi.exceptions import NotFound
 from fuzzywuzzy import process
 
@@ -27,8 +27,19 @@ def get_movie_from_data(LIBRARY_NAME, movie_title):
         movie = None
     return movie
 
+def process_radarr_download_event(library_name, movie_title, movie_id, is_upgrade, is_recent_release):
+    if is_upgrade:
+        app.logger.info(f"Processing upgrade for: {movie_title} (ID: {movie_id})")
+    elif is_recent_release:
+        app.logger.info(f"Processing recent release for: {movie_title} (ID: {movie_id})")
+    else:
+        app.logger.info(f"Skipping: {movie_title} (ID: {movie_id}) - Not an upgrade or recent release")
+        return
+
+    radarr_handle_download_event(library_name, movie_title, movie_id)
+
 def radarr_handle_download_event(LIBRARY_NAME, movie_name, movie_id):
-    if any(m_id == movie_id for m_id, _ in deleted_episodes):
+    if was_media_deleted(movie_id):
         app.logger.info("Skipping as it was a previous upgrade of an English dubbed movie.")
     else:
         try:
@@ -62,13 +73,8 @@ def radarr_webhook(request):
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(movie_id) 
     elif event_type == 'Download' and is_dubbed:
-        if is_upgrade:
-            app.logger.info(f"Processing upgrade for: {movie_title} (ID: {movie_id})")
-            radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
-        elif is_recent_release:
-            app.logger.info(f"Processing recent release for: {movie_title} (ID: {movie_id})")
-            radarr_handle_download_event(RADARR_LIBRARY, movie_title, movie_id)
-        else:
-            app.logger.info(f"Skipping: {movie_title} (ID: {movie_id}) - Not an upgrade or recent release")
+        process_radarr_download_event(RADARR_LIBRARY, movie_title, movie_id, is_upgrade, is_recent_release)
+    else:
+        app.logger.info("Skipping: does not meet criteria for processing.")
 
     return "Webhook received", 200
