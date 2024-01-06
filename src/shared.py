@@ -39,6 +39,8 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         # Move the media to the front of the collection
         collection.moveItem(media, after=None)
         app.logger.info(f"Moved {media_type} '{media.title}' to the front of collection.")
+    else:
+        app.logger.info(f"{media_type} '{media.title}' already in collection.")
 
     # Trimming and sorting the collection
     if len(collection.items()) > MAX_COLLECTION_SIZE:
@@ -66,6 +68,12 @@ def is_recent_or_upcoming_release(date_str):
     return 0 <= days_diff <= MAX_DATE_DIFF or release_or_air_date > current_date
 
 def was_media_deleted(media_id):
+    app.logger.info(f"Current deleted media IDs: {list(deleted_media_ids)}")
+    app.logger.info(f"Checking for media ID: {media_id}")
+
     if any(m_id == media_id for m_id in deleted_media_ids):
+        app.logger.info(f"Media ID {media_id} was found in deleted media IDs.")
         return True
-    return False
+    else:
+        app.logger.info(f"Media ID {media_id} was not found in deleted media IDs.")
+        return False

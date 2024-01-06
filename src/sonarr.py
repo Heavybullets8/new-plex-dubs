@@ -58,15 +58,12 @@ def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number
     app.logger.error(f"Episode for Season {season_number}, Episode {episode_number} not found in '{show.title}' after retries.")
     return None
 
-def sonarr_handle_download_event(LIBRARY_NAME, show_name, episode_id, season_number, episode_number):
-    if was_media_deleted(episode_id):
-        app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
-    else:
-        try:
-            episode = get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, max_retries=3, delay=10)
-            manage_collection(LIBRARY_NAME, episode)
-        except Exception as e:
-            app.logger.info(f"Error processing request: {e}")
+def sonarr_handle_download_event(LIBRARY_NAME, show_name, season_number, episode_number):
+    try:
+        episode = get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, max_retries=3, delay=10)
+        manage_collection(LIBRARY_NAME, episode)
+    except Exception as e:
+        app.logger.info(f"Error processing request: {e}")
 
 def process_download_event(library_name, show_name, episode_name, episode_id, season_number, episode_number, is_upgrade, is_recent_release):
     if is_upgrade:
@@ -77,7 +74,7 @@ def process_download_event(library_name, show_name, episode_name, episode_id, se
         app.logger.info(f"Skipping: {show_name} - {episode_name} (ID: {episode_id}) - Not an upgrade or recent release")
         return
 
-    sonarr_handle_download_event(library_name, show_name, episode_id, season_number, episode_number)
+    sonarr_handle_download_event(library_name, show_name, season_number, episode_number)
 
 def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date, season_number, episode_number):
     app.logger.info(" ")
@@ -109,6 +106,8 @@ def sonarr_webhook(request):
 
     if event_type == 'EpisodeFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
         handle_deletion_event(episode_id)
+    elif was_media_deleted(episode_id):
+        app.logger.info("Skipping as it was a previous upgrade of an English dubbed episode.")
     elif event_type == 'Download' and is_dubbed:
         process_download_event(SONARR_LIBRARY, show_name, episode_name, episode_id, season_number, episode_number, is_upgrade, is_recent_release)
     else:

@@ -27,6 +27,13 @@ def get_movie_from_data(LIBRARY_NAME, movie_title):
         movie = None
     return movie
 
+def radarr_handle_download_event(LIBRARY_NAME, movie_name):
+    try:
+        movie = get_movie_from_data(movie_name)
+        manage_collection(LIBRARY_NAME, movie, is_movie=True)
+    except Exception as e:
+        app.logger.info(f"Error processing request: {e}")
+
 def process_radarr_download_event(library_name, movie_title, movie_id, is_upgrade, is_recent_release):
     if is_upgrade:
         app.logger.info(f"Processing upgrade for: {movie_title} (ID: {movie_id})")
@@ -36,17 +43,7 @@ def process_radarr_download_event(library_name, movie_title, movie_id, is_upgrad
         app.logger.info(f"Skipping: {movie_title} (ID: {movie_id}) - Not an upgrade or recent release")
         return
 
-    radarr_handle_download_event(library_name, movie_title, movie_id)
-
-def radarr_handle_download_event(LIBRARY_NAME, movie_name, movie_id):
-    if was_media_deleted(movie_id):
-        app.logger.info("Skipping as it was a previous upgrade of an English dubbed movie.")
-    else:
-        try:
-            movie = get_movie_from_data(movie_name)
-            manage_collection(LIBRARY_NAME, movie, is_movie=True)
-        except Exception as e:
-            app.logger.info(f"Error processing request: {e}")
+    radarr_handle_download_event(library_name, movie_title)
 
 def radarr_log_event_details(event_type, movie_title, movie_id, release_date, is_dubbed, is_upgrade):
     app.logger.info(" ")
@@ -71,7 +68,9 @@ def radarr_webhook(request):
     radarr_log_event_details(event_type, movie_title, movie_id, release_date, is_dubbed, is_upgrade)
 
     if event_type == 'MovieFileDelete' and data.get('deleteReason') == 'upgrade' and is_dubbed:
-        handle_deletion_event(movie_id) 
+        handle_deletion_event(movie_id)
+    elif was_media_deleted(movie_id):
+        app.logger.info("Skipping as it was a previous upgrade of an English dubbed movie.")
     elif event_type == 'Download' and is_dubbed:
         process_radarr_download_event(RADARR_LIBRARY, movie_title, movie_id, is_upgrade, is_recent_release)
     else:
