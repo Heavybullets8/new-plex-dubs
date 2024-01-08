@@ -2,6 +2,7 @@ from .config import app, plex, RADARR_LIBRARY
 from .shared import is_english_dubbed, manage_collection, is_recent_or_upcoming_release, handle_deletion_event, was_media_deleted
 from plexapi.exceptions import NotFound
 from fuzzywuzzy import process
+import threading
 
 def get_closest_movie(library, query_title, score_cutoff=75):
     movies = [movie.title for movie in library.all()]
@@ -43,7 +44,7 @@ def process_radarr_download_event(library_name, movie_title, movie_id, is_upgrad
         app.logger.info(f"Skipping: {movie_title} (ID: {movie_id}) - Not an upgrade or recent release")
         return
 
-    radarr_handle_download_event(library_name, movie_title)
+    threading.Thread(target=radarr_handle_download_event, args=(library_name, movie_title)).start()
 
 def radarr_log_event_details(event_type, movie_title, movie_id, release_date, is_dubbed, is_upgrade):
     app.logger.info(" ")

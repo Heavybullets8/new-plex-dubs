@@ -1,6 +1,6 @@
 from .config import app, plex, SONARR_LIBRARY
 from .shared import is_english_dubbed, manage_collection, handle_deletion_event, is_recent_or_upcoming_release, was_media_deleted
-import time
+import time, threading
 from fuzzywuzzy import process
 from plexapi.exceptions import NotFound
 
@@ -74,7 +74,7 @@ def process_download_event(library_name, show_name, episode_name, episode_id, se
         app.logger.info(f"Skipping: {show_name} - {episode_name} (ID: {episode_id}) - Not an upgrade or recent release")
         return
 
-    sonarr_handle_download_event(library_name, show_name, season_number, episode_number)
+    threading.Thread(target=sonarr_handle_download_event, args=(library_name, show_name, season_number, episode_number)).start()
 
 def sonarr_log_event_details(event_type, show_name, episode_name, episode_id, is_dubbed, is_upgrade, air_date, season_number, episode_number):
     app.logger.info(" ")
