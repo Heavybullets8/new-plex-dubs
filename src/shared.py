@@ -1,5 +1,5 @@
-from .config import app, plex, deleted_media_ids, MAX_COLLECTION_SIZE, MAX_DATE_DIFF
-import datetime
+from .config import app, plex, MAX_COLLECTION_SIZE, MAX_DATE_DIFF
+import datetime, fcntl
 
 def is_english_dubbed(data):
     audio_languages = data.get('episodeFile', {}).get('mediaInfo', {}).get('audioLanguages', [])
@@ -52,10 +52,27 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
         # Remove excess media items
         collection.removeItems(media_to_remove)
 
+def trim_file(file_path, max_entries):
+    with open(file_path, "r+") as file:
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+        lines = file.readlines()
+        if len(lines) > max_entries:
+            file.seek(0)
+            file.truncate()
+            file.writelines(lines[-max_entries:])  # Keep only the last max_entries
+        fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+
 def handle_deletion_event(media_id):
-    if media_id not in deleted_media_ids:
-        deleted_media_ids.append(media_id)
-        app.logger.info(f"Added {media_id} to deletion record.")
+    with open("/tmp/deleted_media_ids.txt", "a+") as file:
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+        file.seek(0)  # Go to the beginning of the file
+        if str(media_id) not in file.read():
+            file.write(f"{media_id}\n")
+            app.logger.info(f"Added {media_id} to deletion record.")
+        fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+    
+    trim_file("/tmp/deleted_media_ids.txt", 100)  # Limit to 100 entries
+
 
 def is_recent_or_upcoming_release(date_str):
     if not date_str:
@@ -66,7 +83,10 @@ def is_recent_or_upcoming_release(date_str):
     return 0 <= days_diff <= MAX_DATE_DIFF or release_or_air_date > current_date
 
 def was_media_deleted(media_id):
-    if any(m_id == media_id for m_id in deleted_media_ids):
-        return True
-    else:
-        return False
+    with open("/tmp/deleted_media_ids.txt", "r") as file:
+        fcntl.flock(file.fileno(), fcntl.LOCK_SH)
+        deleted_ids = file.read().splitlines()
+        fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+    
+    return str(media_id) in deleted_ids
+

@@ -1,7 +1,6 @@
 from flask import Flask
 from plexapi.server import PlexServer
 from urllib.parse import urlparse
-from collections import deque
 import os, sys, logging
 
 app = Flask(__name__)
@@ -18,8 +17,10 @@ handler.setFormatter(logging.Formatter(
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
 
-# Cache for deleted media IDs
-deleted_media_ids = deque(maxlen=100)
+def ensure_file_exists(file_path):
+    if not os.path.exists(file_path):
+        with open(file_path, 'a') as file:
+            pass
 
 def get_env_variable(var_name, default=None, required=True, errors=[]):
     value = os.getenv(var_name, default)

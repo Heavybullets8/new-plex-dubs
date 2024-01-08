@@ -23,4 +23,4 @@ ENV MAX_DATE_DIFF 4
 EXPOSE $PORT
 
 # Run app.py using Gunicorn when the container launches
-CMD gunicorn --log-level info -w 1 -b 0.0.0.0:$PORT app:app
+CMD gunicorn --timeout 50 --log-level info -w 2 -b 0.0.0.0:$PORT app:app
