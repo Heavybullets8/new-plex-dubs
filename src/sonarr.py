@@ -15,27 +15,36 @@ def get_closest_show(library_section, query_title, score_cutoff=75):
         return None
 
 def get_episode_from_data(LIBRARY_NAME, show_name, season_number, episode_number, max_retries=3, delay=10):
-    app.logger.info(f"Verifying the show '{show_name}' is in Plex...")
+    app.logger.info(f"Attempting to find show '{show_name}' in Plex...")
     library_section = plex.library.section(LIBRARY_NAME)
     retries = 0
     show = None
 
-    # Try to find the show
     while retries < max_retries and not show:
         try:
-            show = library_section.get(show_name)
-            app.logger.info(f"Found show: {show.title}")
+            potential_matches = library_section.search(title=show_name)
+
+            # Check for 100% match
+            exact_match = next((match for match in potential_matches if match.title == show_name), None)
+            if exact_match:
+                show = exact_match
+                app.logger.info(f"Exact match found: {show.title}")
+                break
+
+            app.logger.info(f"No exact match found for '{show_name}'. Retrying...")
+            time.sleep(delay)
         except NotFound:
             app.logger.info(f"Show '{show_name}' not found. Retrying...")
             time.sleep(delay)
+
         retries += 1
 
-    # If show is not found, attempt fuzzy match
+    # Fallback to fuzzy matching
     if not show:
         app.logger.info(f"Attempting fuzzy match for show '{show_name}'.")
         show = get_closest_show(library_section, show_name)
         if not show:
-            app.logger.error(f"Show '{show_name}' not found in library after retries and fuzzy match.")
+            app.logger.error(f"Show '{show_name}' not found in Plex after retries and fuzzy match.")
             return None
         else:
             app.logger.info(f"Found show by fuzzy match: {show.title}")
