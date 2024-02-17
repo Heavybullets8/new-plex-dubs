@@ -42,15 +42,22 @@ def manage_collection(LIBRARY_NAME, media, collection_name='Latest Dubs', is_mov
     else:
         app.logger.info(f"{media_type} '{media.title}' already in collection.")
 
-    # Trimming and sorting the collection
+    # Check if the collection size exceeds the maximum allowed
     if len(collection.items()) > MAX_COLLECTION_SIZE:
-        app.logger.info("Trimming and sorting the collection...")
-        sorted_media = sorted(collection.items(), key=lambda m: m.originallyAvailableAt, reverse=True)
-        media_to_remove = sorted_media[MAX_COLLECTION_SIZE:]
-        for m in media_to_remove:
-            app.logger.info(f"Removing {media_type} '{m.title}' from collection.")
-        # Remove excess media items
-        collection.removeItems(media_to_remove)
+        app.logger.info("Trimming the collection to the maximum allowed size...")
+        
+        items = collection.items()
+        num_items_to_remove = len(items) - MAX_COLLECTION_SIZE
+        # Select items to be removed based on the collection exceeding the MAX_COLLECTION_SIZE
+        items_to_remove = items[-num_items_to_remove:]
+        
+        # Log the titles of the items that are to be removed
+        for item in items_to_remove:
+            app.logger.info(f"Removing item: '{item.title}' from the collection.")
+        
+        # Remove the identified items from the collection
+        collection.removeItems(items_to_remove)
+
 
 def trim_file(file_path, max_entries):
     with open(file_path, "r+") as file:
